@@ -17,10 +17,80 @@ PART 2: Pre-processing
 '''
 
 # import the necessary packages
-
+import pandas as pd
+import os
 
 
 # Your code here
 
+#load csv's into dataframes
+pred_universe = pd.read_csv('data/pred_universe_raw.csv', parse_dates=['arrest_date_univ'])
+arrest_events = pd.read_csv('data/arrest_events_raw.csv', parse_dates=['arrest_date_event'])
+
+#full outer join/merge
+df_arrests = pd.merge(pred_universe, arrest_events, how='outer', on='person_id')
+#check if column exists
+df_arrests = df_arrests.dropna(subset=['arrest_date_univ'])
+
+#creating y
+#sort for useable data
+arrest_events = arrest_events.sort_values(by='arrest_date_event')
+#check if felony arrest occured within 1 year after current arrest
+def was_rearrested(person_id, arrest_date):
+    if pd.isnull(arrest_date):
+        return 0
+    window_start = arrest_date + pd.Timedelta(days=1)
+    window_end = arrest_date + pd.Timedelta(days=365)
+    future_felonies = arrest_events[
+        (arrest_events['person_id'] == person_id) &
+        (arrest_events['arrest_date_event'] >= window_start)&
+        (arrest_events['arrest_date_event'] <= window_end) &
+        (arrest_events['offense_category'] =='F')
+    ]
+    return int(not future_felonies.empty)
+
+df_arrests['y'] = df_arrests.apply(
+    lambda row: was_rearrested(row['person_id'], row['arrest_date_univ']), axis=1
+)
+#print statement
+share_rearrested = df_arrests['y'].mean()
+print(f"What share of arrestees in the `df_arrests` table were rearrested for a felony crime in the next year? {share_rearrested:.3f}")
+
+#create current_charge_felony feature
+df_arrests['current_charge_felony'] = df_arrests['offense_category'].apply(lambda x: 1 if x == 'F' else 0)
+#print statement
+share_felony_current = df_arrests['current_charge_felony'].mean()
+print(f"What share of current charges are felonies? {share_felony_current:.3f}")
 
 
+#create num_fel_arrests_last_year feature
+def count_prior_felonies(person_id, arrest_date):
+    if pd.isnull(arrest_date):
+        return 0
+    window_start = arrest_date -pd.Timedelta(days=365)
+    window_end = arrest_date - pd.Timedelta(days=1)
+    past_felonies = arrest_events[
+        (arrest_events['person_id'] == person_id)&
+        (arrest_events['arrest_date_event'] >= window_start) &
+        (arrest_events['arrest_date_event'] <= window_end) &
+        (arrest_events['offense_category'] == 'F')
+    ]
+    return len(past_felonies)
+
+df_arrests['num_fel_arrests_last_year'] = df_arrests.apply(
+    lambda row: count_prior_felonies(row['person_id'], row['arrest_date_univ']), axis=1
+)
+#print statement + average felony
+avg_prior_felonies = df_arrests['num_fel_arrests_last_year'].mean()
+print(f"What is the average number of felony arrests in the last year? {avg_prior_felonies:.3f}")
+
+#print mean of pred_universe
+print("Mean of num_fel_arrests_last_year for pred_universe:")
+print(df_arrests['num_fel_arrests_last_year'].mean())
+
+#print preview
+print("Preview of df_arrests:")
+print(df_arrests.head())
+
+#save for part 2
+os.makedirs('data', exist_ok=True)

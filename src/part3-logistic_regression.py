@@ -14,12 +14,69 @@ PART 3: Logistic Regression
 
 # Import any further packages you may need for PART 3
 import pandas as pd
+import os
 import numpy as np
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.model_selection import StratifiedKFold as KFold_strat
 from sklearn.linear_model import LogisticRegression as lr
-
-
 # Your code here
 
+#read in 
+df_arrests = pd.read_csv('data/df_arrests.csv')
+
+#create 2 dataframes
+df_arrests_train, df_arrests_test = train_test_split(
+    df_arrests,
+    test_size=0.3,
+    shuffle=True,
+    stratify = df_arrests['y'],
+    random_state=42
+)
+
+# Print class distribution in splits
+print("\nClass distribution in training set:")
+print(df_arrests_train['y'].value_counts())
+
+print("\nClass distribution in test set:")
+print(df_arrests_test['y'].value_counts())
+
+#create features list
+features = ['num_fel_arrests_last_year', 'current_charge_felony']
+
+#create parameter grid 
+param_grid = {'C': [0.01, 1, 100]}
+
+#initalize regression model
+lr_model = lr(random_state=42, solver='liblinear')
+
+#intialize grid search 
+gs_cv = GridSearchCV(
+    estimator = lr_model,
+    param_grid=param_grid,
+    cv=5,
+    scoring='accuracy'
+)
+
+
+#run model
+gs_cv.fit(df_arrests_train[features], df_arrests_train['y'])
+
+#optimal c value 
+opt_c = gs_cv.best_params_['C']
+print(f"\nOptimal value for C: {opt_c }")
+
+if opt_c  == min(param_grid['C']):
+    reg_strength = "most regularization"
+elif opt_c  == max(param_grid['C']):
+    reg_strength = "least regularization"
+else:
+    reg_strength = "medium regularization"
+print(f"Did it have the most, least, or medium regularization? {reg_strength}")
+
+#predict test
+df_arrests_test['pred_lr'] = gs_cv.predict(df_arrests_test[features])
+
+#save 
+df_arrests_train.to_csv('data/df_arrests_train.csv', index=False)
+df_arrests_test.to_csv('data/df_arrests_test.csv', index=False)
 

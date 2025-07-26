@@ -13,9 +13,14 @@ Do both metrics agree that one model is more accurate than the other? Print this
 '''
 
 # Import any further packages you may need for PART 5
+import pandas as pd
 from sklearn.calibration import calibration_curve
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+#load in data 
+df_results= pd.read_csv('data/df_results.csv')
+
 
 # Calibration plot function 
 def calibration_plot(y_true, y_prob, n_bins=10):
@@ -43,3 +48,15 @@ def calibration_plot(y_true, y_prob, n_bins=10):
     plt.title("Calibration Plot")
     plt.legend(loc="best")
     plt.show()
+
+#calibration for linear regression
+print("Gnerating logistic regression calibration plot:")
+calibration_plot(df_results['y'], df_results['prob_lr'], n_bins=5)
+
+#calibration for decision tree
+print("Generating deciaion tree cakibration plot:")
+calibration_plot(df_results['y'], df_results['prob_tree'], n_bins=5)
+
+#which model is more calibrated
+print("Which model is more calibrated?")
+print("Answer: The model who is more calibrated is the logistic regression.")
